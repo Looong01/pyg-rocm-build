@@ -1,5 +1,3 @@
-# pyg-rocm-wheels
-
 # Build environment
 ```
 Ubuntu 22.04
