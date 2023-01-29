@@ -1,0 +1,9 @@
+[run]
+source=torch_scatter
+omit=torch_scatter/placeholder.py
+[report]
+exclude_lines =
+    pragma: no cover
+    torch.jit.script
+    raise
+    except

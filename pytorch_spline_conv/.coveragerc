@@ -1,0 +1,8 @@
+[run]
+source=torch_spline_conv
+[report]
+exclude_lines =
+    pragma: no cover
+    torch.jit.script
+    raise
+    except

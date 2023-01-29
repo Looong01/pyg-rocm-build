@@ -1,0 +1,14 @@
+__pycache__/
+build/
+dist/
+.cache/
+.eggs/
+*.egg-info/
+.coverage
+*.so
+*.aux
+*.log
+*.pdf
+*.hip
+*_hip.cpp
+hip

@@ -1,0 +1,9 @@
+[run]
+source=torch_cluster
+[report]
+exclude_lines =
+    pragma: no cover
+    torch.jit.script
+    raise
+    except
+    is_cuda
