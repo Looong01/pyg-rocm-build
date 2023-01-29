@@ -1,0 +1,48 @@
+package:
+  name: pytorch-geometric
+  version: 2.2.0
+
+source:
+  url: https://files.pythonhosted.org/packages/de/29/dbefbb2b1349638bc9ec5a632d770e8e7fefc2455b8911d675b2ca82d9e1/torch_geometric-2.2.0.tar.gz
+
+requirements:
+  host:
+    - pip
+    - python {{ environ.get('PYTHON_VERSION') }}
+
+  run:
+    - python {{ environ.get('PYTHON_VERSION') }}
+    - {{ environ.get('CONDA_PYTORCH_CONSTRAINT') }}
+    - {{ environ.get('CONDA_CUDATOOLKIT_CONSTRAINT') }}
+    - pytorch-scatter
+    - pytorch-sparse
+    - pytorch-cluster
+    - psutil
+    - tqdm
+    - jinja2
+    - pyparsing
+    - numpy
+    - scipy
+    - requests
+    - scikit-learn
+
+build:
+  string: py{{ environ.get('PYTHON_VERSION').replace('.', '') }}_torch_{{ environ['TORCH_VERSION'] }}_{{ environ['CUDA_VERSION'] }}
+  script: pip install .
+
+test:
+  imports:
+    - torch_scatter
+    - torch_sparse
+    - torch_cluster
+    - torch_geometric
+    - torch_geometric.nn
+    - torch_geometric.data
+    - torch_geometric.utils
+    - torch_geometric.datasets
+    - torch_geometric.transforms
+
+about:
+  home: https://github.com/pyg-team/pytorch_geometric
+  license: MIT
+  summary: Graph Neural Network Library for PyTorch
