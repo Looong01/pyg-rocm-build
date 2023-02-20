@@ -8,6 +8,6 @@
 # Build environment
 ```
 Ubuntu 22.04
-PyTorch 1.13
+PyTorch 2.0.0
 ROCm 5.4.2
 ```
