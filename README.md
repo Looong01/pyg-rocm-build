@@ -1,6 +1,6 @@
 # Update
 1. Upgrade all the PYG libraries to the newest versions.
-2. ~~Delete Python 3.7 support, because PyTorch 2.0 does not support it.~~ Old update
+2. ~~Remove Python 3.7 support, because PyTorch 2.0 does not support it.~~ Old update
   
 # How to use
 1. Be sure that you have installed ROCm 5.7 or newer versions. You can use ```rocm-smi``` to check it.
