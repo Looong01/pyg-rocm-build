@@ -1,0 +1,118 @@
+name: Building Wheels
+
+on: [workflow_dispatch]
+
+jobs:
+
+  wheel:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-20.04, macos-11, windows-2019]
+        python-version: ['3.8', '3.9', '3.10', '3.11']
+        torch-version: [2.0.0, 2.1.0]
+        cuda-version: ['cpu', 'cu117', 'cu118', 'cu121']
+        exclude:
+          - torch-version: 2.0.0
+            cuda-version: 'cu121'
+          - torch-version: 2.1.0
+            cuda-version: 'cu117'
+          - os: macos-11
+            cuda-version: 'cu117'
+          - os: macos-11
+            cuda-version: 'cu118'
+          - os: macos-11
+            cuda-version: 'cu121'
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip
+        run: |
+          pip install --upgrade setuptools
+          pip install scipy==1.10.1  # Python 3.8 support
+
+      - name: Free Disk Space (Ubuntu)
+        if: ${{ runner.os == 'Linux' }}
+        uses: jlumbroso/free-disk-space@main
+
+      - name: Install CUDA ${{ matrix.cuda-version }}
+        if: ${{ matrix.cuda-version != 'cpu' }}
+        run: |
+          bash .github/workflows/cuda/${{ matrix.cuda-version }}-${{ runner.os }}.sh
+
+      - name: Install PyTorch ${{ matrix.torch-version }}+${{ matrix.cuda-version }}
+        run: |
+          pip install torch==${{ matrix.torch-version }} --extra-index-url https://download.pytorch.org/whl/${{ matrix.cuda-version }}
+          python -c "import torch; print('PyTorch:', torch.__version__)"
+          python -c "import torch; print('CUDA:', torch.version.cuda)"
+
+      - name: Set version
+        if: ${{ runner.os != 'macOS' }}
+        run: |
+          VERSION=`sed -n "s/^__version__ = '\(.*\)'/\1/p" torch_sparse/__init__.py`
+          TORCH_VERSION=`echo "pt${{ matrix.torch-version }}" | sed "s/..$//" | sed "s/\.//g"`
+          CUDA_VERSION=`echo ${{ matrix.cuda-version }}`
+          echo "New version name: $VERSION+$TORCH_VERSION$CUDA_VERSION"
+          sed -i "s/$VERSION/$VERSION+$TORCH_VERSION$CUDA_VERSION/" setup.py
+          sed -i "s/$VERSION/$VERSION+$TORCH_VERSION$CUDA_VERSION/" torch_sparse/__init__.py
+        shell:
+          bash
+
+      - name: Install torch-scatter
+        run: |
+          pip install torch-scatter -f https://data.pyg.org/whl/torch-${{ matrix.torch-version }}+${{ matrix.cuda-version }}.html
+
+      - name: Install METIS
+        if: ${{ runner.os != 'Windows' }}
+        run: |
+          bash .github/workflows/metis.sh
+
+      - name: Install METIS on Windows
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          bash .github/workflows/metis-${{ runner.os }}.sh
+
+      - name: Install main package for CPU
+        if: ${{ matrix.cuda-version == 'cpu' }}
+        run: |
+          FORCE_ONLY_CPU=1 WITH_METIS=1 python setup.py develop
+        shell:
+          bash
+
+      - name: Install main package for GPU
+        if: ${{ matrix.cuda-version != 'cpu' }}
+        run: |
+          source .github/workflows/cuda/${{ matrix.cuda-version }}-${{ runner.os }}-env.sh
+          WITH_METIS=1 python setup.py develop
+        shell:
+          bash
+
+      - name: Test installation
+        run: |
+          python -c "import torch_sparse; print('torch-sparse:', torch_sparse.__version__)"
+
+      - name: Build wheel
+        run: |
+          pip install wheel
+          python setup.py bdist_wheel --dist-dir=dist
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-1
+
+      - name: Upload wheel
+        run: |
+          aws s3 sync dist s3://data.pyg.org/whl/torch-${{ matrix.torch-version }}+${{ matrix.cuda-version }} --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers

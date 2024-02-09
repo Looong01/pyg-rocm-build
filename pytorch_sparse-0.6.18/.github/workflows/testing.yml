@@ -1,0 +1,65 @@
+name: Testing
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+
+  pytest:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-2019]
+        python-version: [3.8]
+        torch-version: [2.0.0, 2.1.0]
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install PyTorch ${{ matrix.torch-version }}
+        run: |
+          pip install torch==${{ matrix.torch-version }} --extra-index-url https://download.pytorch.org/whl/cpu
+
+      - name: Install torch-scatter
+        run: |
+          pip install torch-scatter -f https://data.pyg.org/whl/torch-${{ matrix.torch-version }}+cpu.html
+
+      - name: Install METIS
+        if: ${{ runner.os != 'Windows' }}
+        run: |
+          bash .github/workflows/metis.sh
+
+      - name: Install METIS on Windows
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          bash .github/workflows/metis-${{ runner.os }}.sh
+
+      - name: Install main package
+        run: |
+          pip install scipy==1.10.1  # Python 3.8 support
+          python setup.py develop
+        env:
+          WITH_METIS: 1
+
+      - name: Run test-suite
+        run: |
+          pip install pytest pytest-cov
+          pytest --cov --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v1
+        if: success()
+        with:
+          fail_ci_if_error: false

@@ -1,0 +1,53 @@
+name: Testing
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+
+  pytest:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: [3.8]
+        torch-version: [2.0.0, 2.1.0]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install PyTorch ${{ matrix.torch-version }}
+        run: |
+          pip install torch==${{ matrix.torch-version }} --extra-index-url https://download.pytorch.org/whl/cpu
+
+      - name: Patch PyTorch static constexpr on Windows
+        if: ${{ runner.os == 'Windows' }}
+        run: |
+          Torch_DIR=`python -c 'import os; import torch; print(os.path.dirname(torch.__file__))'`
+          sed -i '31,38c\
+          TORCH_API void lazy_init_num_threads();' ${Torch_DIR}/include/ATen/Parallel.h
+        shell: bash
+
+      - name: Install main package
+        run: |
+          python setup.py develop
+
+      - name: Run test-suite
+        run: |
+          pip install pytest pytest-cov
+          pytest --cov --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v1
+        if: success()
+        with:
+          fail_ci_if_error: false
