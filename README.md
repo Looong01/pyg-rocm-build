@@ -13,13 +13,13 @@
 # Build environment
 ```
 Ubuntu 22.04
-PyTorch 2.2.0
+PyTorch 2.2.2
 ROCm 6.0.2
 ```
   
 # Current version
 ```
-pytorch_geometric-2.4.0
+pytorch_geometric-2.5.2
 pytorch_scatter-2.1.2
 pytorch_sparse-0.6.18
 pytorch_cluster-1.6.3
