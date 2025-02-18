@@ -27,7 +27,7 @@ for dir in pytorch_cluster pytorch_scatter pytorch_sparse pytorch_spline_conv
 do
   (
     cd "${current_path}/$dir"
-    ${conda_path}/py38/bin/python setup.py bdist_wheel
+    ${conda_path}/py313/bin/python setup.py bdist_wheel
   ) &
 done
 
@@ -38,9 +38,9 @@ if [ -d ${current_path}/dist ]; then
 fi
 mkdir ${current_path}/dist
 
-package_name="torch-2.4-rocm-6.1"
+package_name="torch-2.6-rocm-6.2.4"
 
-versions=("py38" "py39" "py310" "py311" "py312")
+versions=("py39" "py310" "py311" "py312" "py313")
 
 for version in "${versions[@]}"; do
     mkdir -p ${current_path}/dist/${package_name}-${version}-linux_x86_64
