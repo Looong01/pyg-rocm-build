@@ -38,7 +38,7 @@ if [ -d ${current_path}/dist ]; then
 fi
 mkdir ${current_path}/dist
 
-package_name="torch-2.6-rocm-6.2.4"
+package_name="torch-2.7-rocm-6.3.4"
 
 versions=("py39" "py310" "py311" "py312" "py313")
 
