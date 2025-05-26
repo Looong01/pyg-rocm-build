@@ -1,8 +1,8 @@
 # Update
 1. Upgrade all the PYG libraries to the newest versions.
-2. Remove Python 3.8 support, because PyTorch 2.6 does not support it.
-3. Add Python 3.13 support.
-4. Support ROCm 6.2.4.
+2. ~~Remove Python 3.8 support, because PyTorch 2.6 does not support it.~~ Old update
+3. ~~Add Python 3.13 support.~~ Old update
+4. Support ROCm 6.3.4.
 5. ~~The Python 3.8 version of these wheels built by PyTorch 2.5 building with ROCm 6.1, because ROCm-6.2-build PyTorch doesn't support Python 3.8 in the future.~~ Old update
   
 # How to use
@@ -16,8 +16,8 @@
 # Build environment
 ```
 Ubuntu 22.04
-PyTorch 2.6.0 for Python 3.9~3.13
-ROCm 6.2.4
+PyTorch 2.7 for Python 3.9~3.13
+ROCm 6.3.4
 ```
   
 # Current version
