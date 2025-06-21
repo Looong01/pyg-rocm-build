@@ -15,9 +15,11 @@
   
 # Build environment
 ```
-Ubuntu 22.04
+Ubuntu 24.04 LTS
 PyTorch 2.7 for Python 3.9~3.13
-ROCm 6.3.4
+ROCm 6.4.1
+GNU-13
+Clang-19
 ```
   
 # Current version

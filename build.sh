@@ -1,5 +1,5 @@
 current_path=$(pwd)
-conda_path=$HOME/miniconda3/envs
+conda_path=/mnt/4T/miniconda3
 
 for dir in pytorch_cluster pytorch_scatter pytorch_sparse pytorch_spline_conv
 do
