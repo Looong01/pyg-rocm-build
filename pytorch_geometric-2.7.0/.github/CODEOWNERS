@@ -1,0 +1,23 @@
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+* @rusty1s @akihironitta
+
+*.py @rusty1s @wsad1 @akihironitta
+
+/.github/ @rusty1s @akihironitta
+
+/.github/CODEOWNERS @rusty1s
+
+/torch_geometric/data/ @rusty1s @mananshah99 @akihironitta
+
+/torch_geometric/loader/ @rusty1s @mananshah99 @akihironitta
+
+/torch_geometric/sampler/ @rusty1s @mananshah99 @akihironitta
+
+/docs/ @rusty1s @akihironitta
+
+/torch_geometric/nn/conv/cugraph @tingyu66
+
+/examples/llm @puririshi98
+
+/torch_geometric/llm @puririshi98
