@@ -7,7 +7,7 @@
   
 # How to use
 ## 1. Pypi
-```pip install torch-sparse-rocm torch-spline-conv-rocm torch-scatter-rocm torch-cluster-rocm```
+```pip install torch-geometric torch-sparse-rocm torch-spline-conv-rocm torch-scatter-rocm torch-cluster-rocm```
 
 ## 2. Github release
 1. You can find all the pre-build packages [here](https://github.com/Looong01/pyg-rocm-build/releases). Please follow the tags and find which version of ROCm and PyTorch you do need!
