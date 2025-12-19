@@ -2,9 +2,14 @@
 1. Upgrade all the PYG libraries to the latest versions.
 2. Remove Python 3.9 support, because PyTorch 2.9 does not support it.
 3. Add Python 3.14 support.
-4. Support ROCm 7.0.2.
+4. Support ROCm 7.1.1.
+5. Add Pypi.org installation channel
   
 # How to use
+## 1. Pypi
+```pip install torch-sparse-rocm torch-spline-conv-rocm torch-scatter-rocm torch-cluster-rocm```
+
+## 2. Github release
 1. You can find all the pre-build packages [here](https://github.com/Looong01/pyg-rocm-build/releases). Please follow the tags and find which version of ROCm and PyTorch you do need!
 2. Be sure that you have installed ROCm 5.7 or newer versions. You can use ```rocm-smi``` to check it.
 3. Go to Releases module, choose the versions of PYG you want and the right version of your Python environment.
@@ -19,8 +24,8 @@
 # Build environment
 ```
 Ubuntu 24.04 LTS
-PyTorch 2.7 for Python 3.10~3.14
-ROCm 7.0.2
+PyTorch 2.9 for Python 3.10~3.14
+ROCm 7.1.1
 GNU-13
 Clang-20
 ```

@@ -16,7 +16,7 @@ from torch.utils.cpp_extension import (
 )
 
 __version__ = '0.6.18'
-URL = 'https://github.com/rusty1s/pytorch_sparse'
+URL = 'https://github.com/Looong01/pyg-rocm-build'
 
 WITH_CUDA = False
 if torch.cuda.is_available():
@@ -145,19 +145,21 @@ if torch.cuda.is_available() and torch.version.hip:
     include_package_data = False
 
 setup(
-    name='torch_sparse',
+    name='torch-sparse-rocm',
     version=__version__,
     description=('PyTorch Extension Library of Optimized Autograd Sparse '
-                 'Matrix Operations'),
-    author='Matthias Fey',
-    author_email='matthias.fey@tu-dortmund.de',
+                 'Matrix Operations (ROCm Build)'),
+    author='Looong',
+    author_email='lizelongdd@hotmail.com, matthias.fey@tu-dortmund.de',
     url=URL,
-    download_url=f'{URL}/archive/{__version__}.tar.gz',
+    download_url=f'{URL}/releases',
     keywords=[
         'pytorch',
         'sparse',
         'sparse-matrices',
         'autograd',
+        'rocm',
+        'amd',
     ],
     python_requires='>=3.8',
     install_requires=install_requires,

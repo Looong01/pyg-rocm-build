@@ -9,6 +9,7 @@ cpu_num=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8)
 # 任务列表
 packages=("pytorch_cluster" "pytorch_scatter" "pytorch_sparse" "pytorch_spline_conv")
 versions=("py310" "py311" "py312" "py313" "py314")
+# versions=("py310" "py311" "py312" "py313")
 
 # 编译函数
 compile_task() {
@@ -45,7 +46,7 @@ if [ -d ${current_path}/dist ]; then
 fi
 mkdir ${current_path}/dist
 
-package_name="torch-2.10.0-rocm-7.0"
+package_name="torch-2.9.1-rocm-6.4"
 
 for version in "${versions[@]}"; do
     mkdir -p ${current_path}/dist/${package_name}-${version}-linux_x86_64

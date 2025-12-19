@@ -12,7 +12,7 @@ from torch.utils.cpp_extension import (CUDA_HOME, BuildExtension, CppExtension,
                                        CUDAExtension)
 
 __version__ = '2.1.2'
-URL = 'https://github.com/rusty1s/pytorch_scatter'
+URL = 'https://github.com/Looong01/pyg-rocm-build'
 
 WITH_CUDA = False
 if torch.cuda.is_available():
@@ -61,9 +61,11 @@ def get_extensions():
             print('Compiling without OpenMP...')
 
         # Compile for mac arm64
-        if (sys.platform == 'darwin' and platform.machine() == 'arm64'):
-            extra_compile_args['cxx'] += ['-arch', 'arm64']
-            extra_link_args += ['-arch', 'arm64']
+        if sys.platform == 'darwin':
+            extra_compile_args['cxx'] += ['-D_LIBCPP_DISABLE_AVAILABILITY']
+            if platform.machine == 'arm64':
+                extra_compile_args['cxx'] += ['-arch', 'arm64']
+                extra_link_args += ['-arch', 'arm64']
 
         if suffix == 'cuda':
             define_macros += [('WITH_CUDA', None)]
@@ -118,14 +120,15 @@ if torch.cuda.is_available() and torch.version.hip:
     include_package_data = False
 
 setup(
-    name='torch_scatter',
+    name='torch-scatter-rocm',
     version=__version__,
-    description='PyTorch Extension Library of Optimized Scatter Operations',
-    author='Matthias Fey',
-    author_email='matthias.fey@tu-dortmund.de',
+    description=('PyTorch Extension Library of Optimized Scatter Operations '
+                 '(ROCm Build)'),
+    author='Looong',
+    author_email='lizelongdd@hotmail.com, matthias.fey@tu-dortmund.de',
     url=URL,
-    download_url=f'{URL}/archive/{__version__}.tar.gz',
-    keywords=['pytorch', 'scatter', 'segment', 'gather'],
+    download_url=f'{URL}/releases',
+    keywords=['pytorch', 'scatter', 'segment', 'gather', 'rocm', 'amd'],
     python_requires='>=3.8',
     install_requires=install_requires,
     extras_require={
