@@ -7,10 +7,10 @@ import re
 
 # 配置
 OLD_PLATFORM = "linux_x86_64"
-NEW_PLATFORM = "manylinux_2_39_x86_64"
+NEW_PLATFORM = "manylinux_2_32_x86_64"
 
 def rename_wheel(wheel_path):
-    """重命名 wheel 文件，将平台标签从 linux_x86_64 改为 manylinux_2_39_x86_64"""
+    """重命名 wheel 文件，将平台标签从 linux_x86_64 改为 manylinux_2_32_x86_64"""
     wheel_path = Path(wheel_path)
     
     if OLD_PLATFORM not in wheel_path.name:

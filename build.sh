@@ -1,7 +1,11 @@
 #!/bin/bash
 
+package_name="torch-2.9.1-rocm-6.4"
+version_tag="post1"
+
+
 current_path=$(pwd)
-conda_path=/mnt/4T/miniconda3/loong
+conda_path=/root/miniconda3
 
 # 获取CPU核心数量
 cpu_num=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8)
@@ -10,6 +14,17 @@ cpu_num=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8)
 packages=("pytorch_cluster" "pytorch_scatter" "pytorch_sparse" "pytorch_spline_conv")
 versions=("py310" "py311" "py312" "py313" "py314")
 # versions=("py310" "py311" "py312" "py313")
+
+# 在编译之前，修正四个模块 setup.py 中的 __version__ 行
+for pkg in "${packages[@]}"; do
+    setup_file="${current_path}/${pkg}/setup.py"
+    if [ -f "$setup_file" ]; then
+        # 将 __version__="xxx.post*" 改为 __version__="xxx.${version_tag}"
+        sed -i -E "s/(__version__ *= *[\"'][0-9]+\.[0-9]+\.[0-9]+)\.post[0-9]+/\1.${version_tag}/" "$setup_file"
+    else
+        echo "Warning: $setup_file not found"
+    fi
+done
 
 # 编译函数
 compile_task() {
@@ -46,8 +61,6 @@ if [ -d ${current_path}/dist ]; then
 fi
 mkdir ${current_path}/dist
 
-package_name="torch-2.9.1-rocm-6.4"
-
 for version in "${versions[@]}"; do
     mkdir -p ${current_path}/dist/${package_name}-${version}-linux_x86_64
     py_version="${version#py}"
@@ -69,3 +82,18 @@ for version in "${versions[@]}"; do
 done
 
 rm ${current_path}/dist/torch_geometric-2.7.0-py3-none-any.whl
+
+# 复制所有编译好的包，除了torch_geometric，到./upload/
+for version in "${versions[@]}"; do
+    cp ${current_path}/dist/${package_name}-${version}-linux_x86_64/*.whl ${current_path}/upload/
+done
+
+rm -rf ${current_path}/upload/torch_geometric-2.7.0-py3-none-any.whl
+
+cd ${current_path}/upload
+
+"${conda_path}/py312/bin/python" fix_whl.py
+
+twine upload -u __token__ -p <Pypi_token> *.whl
+
+cd ${current_path}
