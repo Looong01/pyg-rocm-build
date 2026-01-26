@@ -18,12 +18,12 @@
 6. ```pip install ./*```
 
 # Attention
-1. The Python 3.8 version of these wheels was built by PyTorch 2.5 building with ROCm 6.1, because ROCm-6.2-build PyTorch doesn't support Python 3.8 in the future.
-2. The Python 3.9 version of these wheels was built by PyTorch 2.8 building with ROCm 6.4, because ROCm-7.0-build PyTorch doesn't support Python 3.9 in the future.
+1. The Python 3.8 version of these wheels was built by PyTorch 2.5 building with ROCm 6.1, because ROCm-6.2-build PyTorch doesn't support Python 3.8 in the future. Please check the old tags of Release page.
+2. The Python 3.9 version of these wheels was built by PyTorch 2.8 building with ROCm 6.4, because ROCm-7.0-build PyTorch doesn't support Python 3.9 in the future. Please check the old tags of Release page.
   
 # Build environment
 ```
-Ubuntu 24.04 LTS
+Ubuntu 22.04 LTS
 PyTorch 2.9 for Python 3.10~3.14
 ROCm 7.1.1
 GNU-13
