@@ -1,11 +1,11 @@
 #!/bin/bash
 
-package_name="torch-2.9.1-rocm-6.4"
-version_tag="post1"
+package_name="torch-2.10.0-rocm-7.1"
+version_tag="post2"
 
 
 current_path=$(pwd)
-conda_path=/root/miniconda3
+conda_path=/root/miniconda3/
 
 # 获取CPU核心数量
 cpu_num=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 8)
@@ -92,8 +92,8 @@ rm -rf ${current_path}/upload/torch_geometric-2.7.0-py3-none-any.whl
 
 cd ${current_path}/upload
 
-"${conda_path}/py312/bin/python" fix_whl.py
+"${conda_path}/py312/bin/python" fix_whl.py --post "${version_tag}"
 
-twine upload -u __token__ -p <Pypi_token> *.whl
+"${conda_path}/py312/bin/python" -m twine upload -u __token__ -p <Pypi_token> *.whl
 
 cd ${current_path}
