@@ -11,7 +11,7 @@
 
 ## 2. Github release
 1. You can find all the pre-build packages [here](https://github.com/Looong01/pyg-rocm-build/releases). Please follow the tags and find which version of ROCm and PyTorch you do need!
-2. Be sure that you have installed ROCm 5.7 or newer versions. You can use ```rocm-smi``` to check it.
+2. Be sure that you have installed ROCm 5.7 or newer versions. You can use ```rocm-smi``` to check it. For ROCm 7.0 or newer versions, please use ```amd-smi``` to check it.
 3. Go to Releases module, choose the versions of PYG you want and the right version of your Python environment.
 4. Download the zip file.
 5. ```unzip``` it, and ```cd ``` into the folder.
