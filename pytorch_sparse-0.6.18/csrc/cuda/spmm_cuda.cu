@@ -6,7 +6,7 @@
 #include "utils.cuh"
 
 #define THREADS 256
-#ifdef USE_ROCM
+#if defined(USE_ROCM) && __AMDGCN_WAVEFRONT_SIZE == 64
 #define FULL_MASK 0xffffffffffffffff
 #else
 #define FULL_MASK 0xffffffff
