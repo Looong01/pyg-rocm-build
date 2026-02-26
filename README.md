@@ -3,11 +3,12 @@
 2. Remove Python 3.9 support, because PyTorch 2.9 does not support it.
 3. Add Python 3.14 support.
 4. Support ROCm 7.1.1.
-5. Add Pypi.org installation channel
+5. Add Pypi.org installation channel.
+6. Add pyg-lib-rocm support.
   
 # How to use
 ## 1. Pypi
-```pip install torch-geometric torch-sparse-rocm torch-spline-conv-rocm torch-scatter-rocm torch-cluster-rocm```
+```pip install torch-geometric torch-sparse-rocm torch-spline-conv-rocm torch-scatter-rocm torch-cluster-rocm pyg-lib-rocm```
 
 ## 2. Github release
 1. You can find all the pre-build packages [here](https://github.com/Looong01/pyg-rocm-build/releases). Please follow the tags and find which version of ROCm and PyTorch you do need!
@@ -37,4 +38,5 @@ pytorch_scatter-2.1.2
 pytorch_sparse-0.6.18
 pytorch_cluster-1.6.3
 pytorch_spline_conv-1.2.2
+pyg_lib-0.6.0
 ```

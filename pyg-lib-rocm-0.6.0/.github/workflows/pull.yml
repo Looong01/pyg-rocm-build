@@ -1,0 +1,133 @@
+name: pull
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      full-matrix:
+        type: boolean
+        required: false
+        default: false
+      trigger-linux:
+        type: boolean
+        required: false
+        default: false
+      trigger-macos:
+        type: boolean
+        required: false
+        default: false
+      trigger-windows:
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ startsWith(github.ref, 'refs/pull/') || github.run_number }}  # yamllint disable-line
+  # Cancel running jobs if triggered on a PR or on workflow_dispatch on the same commit.
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') || github.event_name == 'workflow_dispatch' }}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    outputs:
+      trigger-linux: ${{ steps.set-matrix.outputs.trigger-linux }}
+      trigger-macos: ${{ steps.set-matrix.outputs.trigger-macos }}
+      trigger-windows: ${{ steps.set-matrix.outputs.trigger-windows }}
+      matrix-linux: ${{ steps.set-matrix.outputs.matrix-linux }}
+      matrix-macos: ${{ steps.set-matrix.outputs.matrix-macos }}
+      matrix-windows: ${{ steps.set-matrix.outputs.matrix-windows }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Configure matrix
+        id: set-matrix
+        run: |
+          set -x
+          if [ ${{ github.event_name }} = 'pull_request' ]; then
+            if [ ${{ contains(github.event.pull_request.labels.*.name, 'ci: full') }} == 'true' ]; then
+              matrix_type="full"
+            else
+              matrix_type="minimal"
+            fi
+          else
+            matrix_type="full"
+          fi
+
+          # Set Linux matrix
+          echo ::group::Set Linux matrix
+          filename=".github/workflows/utils/${matrix_type}_matrix_linux.json"
+          matrix=$(jq -c '[.[] | { "torch-version": .["torch-version"], "python-version": .["python-version"][], "cuda-version": .["cuda-version"][] }]' $filename)
+          echo "matrix-linux=$matrix" >> $GITHUB_OUTPUT
+          echo "matrix-linux=$matrix"
+          trigger=${{ contains(github.event.pull_request.labels.*.name, 'os: linux') }}
+          echo "trigger-linux=$trigger" >> $GITHUB_OUTPUT
+          echo "trigger-linux=$trigger"
+          echo ::endgroup::
+
+          # Set macOS matrix
+          echo ::group::Set macOS matrix
+          filename=".github/workflows/utils/${matrix_type}_matrix_macos.json"
+          matrix=$(jq -c '[.[] | { "torch-version": .["torch-version"], "python-version": .["python-version"][], "cuda-version": .["cuda-version"][] }]' $filename)
+          echo "matrix-macos=$matrix" >> $GITHUB_OUTPUT
+          echo "matrix-macos=$matrix"
+          trigger=${{ contains(github.event.pull_request.labels.*.name, 'os: macos') }}
+          echo "trigger-macos=$trigger" >> $GITHUB_OUTPUT
+          echo "trigger-macos=$trigger"
+          echo ::endgroup::
+
+          # Set Windows matrix
+          echo ::group::Set Windows matrix
+          filename=".github/workflows/utils/${matrix_type}_matrix_windows.json"
+          matrix=$(jq -c '[.[] | { "torch-version": .["torch-version"], "python-version": .["python-version"][], "cuda-version": .["cuda-version"][] }]' $filename)
+          echo "matrix-windows=$matrix" >> $GITHUB_OUTPUT
+          echo "matrix-windows=$matrix"
+          trigger=${{ contains(github.event.pull_request.labels.*.name, 'os: windows') }}
+          echo "trigger-windows=$trigger" >> $GITHUB_OUTPUT
+          echo "trigger-windows=$trigger"
+          echo ::endgroup::
+
+  linux:
+    needs: [trigger]
+    if: ${{ needs.trigger.outputs.trigger-linux == 'true' || inputs.trigger-linux }}
+    uses: ./.github/workflows/_build_linux.yml
+    with:
+      test-matrix: ${{ needs.trigger.outputs.matrix-linux }}
+      docker-hub-username: ${{ vars.DOCKERHUB_USERNAME }}
+    secrets:
+      docker-hub-token: ${{ secrets.DOCKERHUB_TOKEN }}
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  macos:
+    needs: [trigger]
+    if: ${{ needs.trigger.outputs.trigger-macos == 'true' || inputs.trigger-macos }}
+    uses: ./.github/workflows/_build_macos.yml
+    with:
+      test-matrix: ${{ needs.trigger.outputs.matrix-macos }}
+    secrets:
+      aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  windows:
+    needs: [trigger]
+    if: ${{ needs.trigger.outputs.trigger-windows == 'true' || inputs.trigger-windows }}
+    uses: ./.github/workflows/_build_windows.yml
+    with:
+      test-matrix: ${{ needs.trigger.outputs.matrix-windows }}
+    secrets: inherit
+
+  status:
+    needs: [trigger, linux, macos, windows]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Fail if any build failed or cancelled
+        if: ${{ contains(join(needs.*.result, ','), 'failure') || contains(join(needs.*.result, ','), 'cancelled') }}
+        run: |
+          echo "One or more builds failed or cancelled:"
+          echo "trigger: ${{ needs.trigger.result }}"
+          echo "linux: ${{ needs.linux.result }}"
+          echo "macos: ${{ needs.macos.result }}"
+          echo "windows: ${{ needs.windows.result }}"
+          exit 1

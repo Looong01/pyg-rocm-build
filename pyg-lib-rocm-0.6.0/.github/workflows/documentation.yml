@@ -1,0 +1,35 @@
+name: Documentation
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - master
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ startsWith(github.ref, 'refs/pull/') || github.run_number }}  # yamllint disable-line
+  # Only cancel intermediate builds if on a PR:
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+
+  make_html:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        uses: ./.github/actions/setup
+
+      - name: Install package
+        run: |
+          pip install git+https://github.com/pyg-team/pyg_sphinx_theme.git
+          BUILD_DOCS=1 pip install --no-build-isolation --verbose -e .
+
+      - name: Build documentation
+        run: |
+          cd docs && make clean && make html SPHINXOPTS="-W"  # Fail on warning.

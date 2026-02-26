@@ -1,0 +1,236 @@
+cmake_minimum_required(VERSION 3.18)
+if(WITH_ROCM)
+  if(DEFINED ENV{ROCM_PATH} AND NOT "$ENV{ROCM_PATH}" STREQUAL "")
+    set(_ROCM_ROOT "$ENV{ROCM_PATH}")
+  else()
+    set(_ROCM_ROOT "/opt/rocm")
+  endif()
+  set(CMAKE_C_COMPILER  ${_ROCM_ROOT}/bin/hipcc CACHE FILEPATH "" FORCE)
+  set(CMAKE_CXX_COMPILER ${_ROCM_ROOT}/bin/hipcc CACHE FILEPATH "" FORCE)
+  set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+  set(THREADS_PREFER_PTHREAD_FLAG ON)
+  project(pyg LANGUAGES C CXX HIP)
+else()
+  project(pyg)
+endif()
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_SHARED_LIBRARY_PREFIX "lib")
+set(PYG_VERSION 0.6.0)
+set(NO_METIS 0)
+
+option(BUILD_TEST "Enable testing" OFF)
+option(BUILD_BENCHMARK "Enable benchmarks" OFF)
+option(WITH_COV "Enable code coverage" OFF)
+option(WITH_CUDA "Enable CUDA support" OFF)
+option(WITH_ROCM "Enable ROCm/HIP support" OFF)
+if (WITH_ROCM AND WITH_CUDA)
+  message(FATAL_ERROR "WITH_ROCM and WITH_CUDA cannot both be ON")
+endif()
+
+if(NOT WIN32 AND NOT DEFINED USE_CXX11_ABI)
+  find_package(Python3 COMPONENTS Interpreter REQUIRED)
+  execute_process(
+      COMMAND ${Python3_EXECUTABLE} "-c"
+              "import torch; print(torch.compiled_with_cxx11_abi(),end='');"
+      RESULT_VARIABLE _PYTHON_SUCCESS
+      OUTPUT_VARIABLE USE_CXX11_ABI)
+  # Convert the bool variable to integer.
+  if(USE_CXX11_ABI)
+    set(USE_CXX11_ABI 1)
+  else()
+    set(USE_CXX11_ABI 0)
+  endif()
+  message(STATUS "Using USE_CXX11_ABI set by PyTorch to ${USE_CXX11_ABI}")
+else()
+  set(USE_CXX11_ABI 0)
+endif()
+
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=${USE_CXX11_ABI}")
+
+set(WITH_MKL_BLAS 0)
+if(USE_MKL_BLAS AND DEFINED BLAS_INCLUDE_DIR)
+  find_file(MKL_INCLUDE_FOUND mkl.h ${BLAS_INCLUDE_DIR} NO_DEFAULT_PATH)
+  if(MKL_INCLUDE_FOUND)
+    set(WITH_MKL_BLAS 1)
+  else()
+    if(WITH_COV)
+      message(FATAL_ERROR "The mkl.h file was not found - pass the correct directory or set USE_MKL_BLAS=OFF.")
+    else()
+      message(WARNING "The mkl.h file was not found - building pyg-lib without MKL BLAS support.")
+    endif()
+  endif()
+endif()
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pyg_lib/csrc/config.h.in "${CMAKE_CURRENT_SOURCE_DIR}/pyg_lib/csrc/config.h")
+
+if(WITH_CUDA)
+  enable_language(CUDA)
+  add_definitions(-DWITH_CUDA)
+  set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr -allow-unsupported-compiler")
+
+  if (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
+    set(CMAKE_CUDA_ARCHITECTURES "75;80;86;90;100;120")
+  elseif (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 12.8)
+    set(CMAKE_CUDA_ARCHITECTURES "70;75;80;86;90;100;120")
+  elseif (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.8)
+    set(CMAKE_CUDA_ARCHITECTURES "60;70;75;80;86;90")
+  elseif (CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.3)
+    set(CMAKE_CUDA_ARCHITECTURES "60;70;75;80;86")
+  else()
+    set(CMAKE_CUDA_ARCHITECTURES "60;70;75")
+  endif()
+
+  if (NOT "$ENV{EXTERNAL_CUTLASS_INCLUDE_DIR}" STREQUAL "")
+    include_directories($ENV{EXTERNAL_CUTLASS_INCLUDE_DIR})
+  else()
+    set(CUTLASS_DIR third_party/cutlass/include)
+    include_directories(${CUTLASS_DIR})
+    set(CUTLASS_UTIL_DIR third_party/cutlass/tools/util/include)
+    include_directories(${CUTLASS_UTIL_DIR})
+  endif()
+  set(CUCOLLECTIONS_DIR third_party/cuCollections/include)
+  include_directories(${CUCOLLECTIONS_DIR})
+endif()
+
+if (WITH_ROCM)
+  if (CMAKE_VERSION VERSION_LESS "3.23.1")
+    message(FATAL_ERROR "WITH_ROCM requires CMake >= 3.23.1 (now ${CMAKE_VERSION})")
+  endif()
+  enable_language(HIP)
+  add_definitions(-DWITH_ROCM)
+  find_package(Threads REQUIRED)
+  find_package(hip REQUIRED)
+  find_package(hipblaslt REQUIRED)
+  find_package(rocblas REQUIRED)
+  find_package(rocprim REQUIRED)
+  find_package(rocthrust REQUIRED)
+  find_package(composable_kernel REQUIRED)
+  set(LIBHIPCXX_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/libhipcxx")
+  set(HIP_COLLECTIONS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/hipCollections/include)
+  find_package(libhipcxx REQUIRED CONFIG  PATHS "${LIBHIPCXX_DIR}/lib/cmake/libhipcxx"  NO_DEFAULT_PATH)
+  include_directories(${HIP_COLLECTIONS_DIR})
+endif()
+
+set(CSRC pyg_lib/csrc)
+file(GLOB_RECURSE ALL_SOURCES ${CSRC}/*.cpp)
+if (WITH_CUDA)
+  file(GLOB_RECURSE ALL_SOURCES ${ALL_SOURCES} ${CSRC}/*.cu)
+endif()
+if (WITH_ROCM)
+  file(GLOB_RECURSE ALL_SOURCES ${ALL_SOURCES} ${CSRC}/*.hip)
+  # CK half math utilities require implicit half conversions/operators.
+  # PyTorch ROCm compile flags may define __HIP_NO_HALF_* globally.
+  # Restrict macro undefinition to the CK matmul TU.
+  set(PYG_ROCM_MATMUL_HIP "${CMAKE_CURRENT_SOURCE_DIR}/pyg_lib/csrc/ops/rocm/matmul_kernel.hip")
+  if(EXISTS "${PYG_ROCM_MATMUL_HIP}")
+    set_source_files_properties("${PYG_ROCM_MATMUL_HIP}" PROPERTIES
+      COMPILE_OPTIONS "-U__HIP_NO_HALF_OPERATORS__;-U__HIP_NO_HALF_CONVERSIONS__")
+  endif()
+endif()
+add_library(${PROJECT_NAME} SHARED ${ALL_SOURCES})
+target_include_directories(${PROJECT_NAME} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
+if(MKL_INCLUDE_FOUND)
+    target_include_directories(${PROJECT_NAME} PRIVATE ${BLAS_INCLUDE_DIR})
+endif()
+
+if (NOT "$ENV{EXTERNAL_PHMAP_INCLUDE_DIR}" STREQUAL "")
+  include_directories($ENV{EXTERNAL_PHMAP_INCLUDE_DIR})
+else()
+  set(PHMAP_DIR third_party/parallel-hashmap)
+  include_directories(${PHMAP_DIR})
+  target_include_directories(${PROJECT_NAME} PRIVATE ${PHMAP_DIR})
+endif()
+
+if (MSVC)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /DIDXTYPEWIDTH=64 /DREALTYPEWIDTH=32")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /DIDXTYPEWIDTH=64 /DREALTYPEWIDTH=32")
+else()
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DIDXTYPEWIDTH=64 -DREALTYPEWIDTH=32")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIDXTYPEWIDTH=64 -DREALTYPEWIDTH=32")
+endif()
+
+if (NOT MSVC)
+  set(METIS_DIR third_party/METIS)
+  target_include_directories(${PROJECT_NAME} PRIVATE ${METIS_DIR}/include)
+  set(GKLIB_PATH "${METIS_DIR}/GKlib")
+  include(${GKLIB_PATH}/GKlibSystem.cmake)
+  include_directories(${GKLIB_PATH})
+  include_directories("${METIS_DIR}/include")
+  add_subdirectory("${METIS_DIR}/libmetis")
+
+  if (WITH_ROCM)
+    if (TARGET metis)
+      set_target_properties(metis PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif()
+    if (TARGET GKlib)
+      set_target_properties(GKlib PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    endif()
+  endif()
+
+  target_link_libraries(${PROJECT_NAME} PRIVATE metis)
+endif()
+
+find_package(Torch REQUIRED)
+message("-- TORCH_LIBRARIES: ${TORCH_LIBRARIES}")
+target_link_libraries(${PROJECT_NAME} PRIVATE ${TORCH_LIBRARIES})
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+  target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
+endif()
+
+if(WITH_CUDA)
+  target_include_directories(${PROJECT_NAME} PRIVATE
+                             third_party/cccl/thrust
+                             third_party/cccl/cub
+                             third_party/cccl/libcudacxx/include)
+endif()
+
+if (WITH_ROCM)
+  target_link_libraries(${PROJECT_NAME} PRIVATE Threads::Threads)
+  target_link_libraries(${PROJECT_NAME}
+    PRIVATE
+      hip::device
+      roc::hipblaslt
+      roc::rocblas
+      roc::rocthrust
+      libhipcxx::libhipcxx
+  )
+  if(TARGET composable_kernel::device_gemm_operations)
+    target_link_libraries(${PROJECT_NAME} PRIVATE composable_kernel::device_gemm_operations)
+  elseif(TARGET composablekernels::device_gemm_operations)
+    target_link_libraries(${PROJECT_NAME} PRIVATE composablekernels::device_gemm_operations)
+  else()
+    message(WARNING "composable_kernel::device_gemm_operations target not found; building with CK headers only")
+  endif()
+endif()
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
+
+if(BUILD_TEST)
+  if(WITH_COV)
+    set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} --coverage")
+  endif()
+  include(cmake/test.cmake)
+endif()
+
+message("-- CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message("-- CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
+message("-- CMAKE_CXX_FLAGS_RELEASE: ${CMAKE_CXX_FLAGS_RELEASE}")
+
+if(BUILD_BENCHMARK)
+  set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE INTERNAL "Disable benchmarking tool tests")
+  set(COMPILE_HAVE_GNU_POSIX_REGEX OFF CACHE INTERNAL "Disable GNU POSIX regex compilation check")
+  include(cmake/benchmark.cmake)
+endif()
+
+set_target_properties(${PROJECT_NAME} PROPERTIES
+  EXPORT_NAME PyG
+  INSTALL_RPATH ${TORCH_INSTALL_PREFIX}/lib)
+
+# Cmake creates *.dylib by default, but python expects *.so by default
+if (APPLE)
+  set_property(TARGET ${PROJECT_NAME} PROPERTY SUFFIX .so)
+elseif (MSVC)
+  set_property(TARGET ${PROJECT_NAME} PROPERTY SUFFIX .pyd)
+endif()

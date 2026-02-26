@@ -1,0 +1,93 @@
+name: Build macOS Wheels
+
+on:  # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      test-matrix:
+        type: string
+        required: true
+      release-type:
+        type: string
+        required: false
+        default: ''
+        description: 'nightly or final'
+    secrets:
+      aws-access-key-id:
+        required: true
+      aws-secret-access-key:
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  wheel:
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.test-matrix) }}
+
+    steps:
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.aws-access-key-id }}
+          aws-secret-access-key: ${{ secrets.aws-secret-access-key }}
+          aws-region: us-west-1
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          # NOTE: This is a version used for cibuildwheel but not for wheels.
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          pip install cibuildwheel delocate
+
+      - name: Set version (final)
+        if: ${{ inputs.release-type == 'final' }}
+        run: |
+          VERSION=`sed -n "s/^__version__ = '\(.*\)'/\1/p" pyg_lib/__init__.py`
+          TORCH_VERSION=`echo "pt${{ matrix.torch-version }}" | sed "s/..$//" | sed "s/\.//g"`
+          echo "New version name: $VERSION+$TORCH_VERSION"
+          sed -i "" "s/$VERSION/$VERSION+$TORCH_VERSION/" setup.py
+          sed -i "" "s/$VERSION/$VERSION+$TORCH_VERSION/" pyg_lib/__init__.py
+
+      - name: Set version (nightly)
+        if: ${{ inputs.release-type != 'final' }}
+        run: |
+          VERSION=`sed -n "s/^__version__ = '\(.*\)'/\1/p" pyg_lib/__init__.py`
+          TORCH_VERSION=`echo "pt${{ matrix.torch-version }}" | sed "s/..$//" | sed "s/\.//g"`
+          TODAY=$(date +'%Y%m%d')
+          echo "New version name: $VERSION.dev$TODAY+$TORCH_VERSION"
+          sed -i "" "s/$VERSION/$VERSION.dev$TODAY+$TORCH_VERSION/" setup.py
+          sed -i "" "s/$VERSION/$VERSION.dev$TODAY+$TORCH_VERSION/" pyg_lib/__init__.py
+
+      - name: Build wheel
+        run: |
+          bash ./.github/workflows/utils/build_macos.sh ${{ matrix.python-version }} ${{ matrix.torch-version }}
+
+      - name: Upload wheel (final)
+        if: ${{ inputs.release-type == 'final' }}
+        run: |
+          aws s3 sync dist s3://data.pyg.org/whl/torch-${{ matrix.torch-version }}+cpu --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+
+      - name: Upload wheel (nightly)
+        if: ${{ inputs.release-type == 'nightly' }}
+        run: |
+          aws s3 sync dist s3://data.pyg.org/whl/nightly/torch-${{ matrix.torch-version }}+cpu --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+
+      - name: Upload wheel as GitHub artifact
+        if: ${{ inputs.release-type == '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: wheel-macos-${{ matrix.python-version }}-${{ matrix.torch-version }}
+          path: dist/*.whl
