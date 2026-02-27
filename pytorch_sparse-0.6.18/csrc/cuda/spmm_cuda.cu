@@ -6,11 +6,7 @@
 #include "utils.cuh"
 
 #define THREADS 256
-#ifdef USE_ROCM
 #define FULL_MASK 0xffffffffffffffff
-#else
-#define FULL_MASK 0xffffffff
-#endif
 
 // Paper: Design Principles for Sparse Matrix Multiplication on the GPU
 // Code:  https://github.com/owensgroup/merge-spmm
