@@ -1,0 +1,114 @@
+name: Build Linux Wheels
+
+on:  # yamllint disable-line rule:truthy
+  workflow_call:
+    inputs:
+      test-matrix:
+        type: string
+        required: true
+      release-type:
+        type: string
+        required: false
+        default: ''
+        description: 'nightly or final'
+      docker-hub-username:
+        type: string
+        required: true
+    secrets:
+      docker-hub-token:
+        required: true
+      aws-access-key-id:
+        required: true
+      aws-secret-access-key:
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  wheel:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(inputs.test-matrix) }}
+
+    steps:
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ inputs.docker-hub-username }}
+          password: ${{ secrets.docker-hub-token }}
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.aws-access-key-id }}
+          aws-secret-access-key: ${{ secrets.aws-secret-access-key }}
+          aws-region: us-west-1
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Free up disk space
+        # Disk space required for CPU builds is usually small enough, so we
+        # save a few minutes by skipping this step.
+        if: ${{ matrix.cuda-version != 'cpu' }}
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+          tool-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          # NOTE: This is a version used for cibuildwheel but not for wheels.
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          pip install cibuildwheel auditwheel
+
+      - name: Set version (final)
+        if: ${{ inputs.release-type == 'final' }}
+        run: |
+          VERSION=`sed -n "s/^__version__ = '\(.*\)'/\1/p" pyg_lib/__init__.py`
+          TORCH_VERSION=`echo "pt${{ matrix.torch-version }}" | sed "s/..$//" | sed "s/\.//g"`
+          CUDA_VERSION=`echo ${{ matrix.cuda-version }}`
+          echo "New version name: $VERSION+$TORCH_VERSION$CUDA_VERSION"
+          sed -i "s/$VERSION/$VERSION+$TORCH_VERSION$CUDA_VERSION/" setup.py
+          sed -i "s/$VERSION/$VERSION+$TORCH_VERSION$CUDA_VERSION/" pyg_lib/__init__.py
+
+      - name: Set version (nightly)
+        if: ${{ inputs.release-type == 'nightly' }}
+        run: |
+          VERSION=`sed -n "s/^__version__ = '\(.*\)'/\1/p" pyg_lib/__init__.py`
+          TORCH_VERSION=`echo "pt${{ matrix.torch-version }}" | sed "s/..$//" | sed "s/\.//g"`
+          CUDA_VERSION=`echo ${{ matrix.cuda-version }}`
+          TODAY=`date +'%Y%m%d'`
+          echo "New version name: $VERSION.dev$TODAY+$TORCH_VERSION$CUDA_VERSION"
+          sed -i "s/$VERSION/$VERSION.dev$TODAY+$TORCH_VERSION$CUDA_VERSION/" setup.py
+          sed -i "s/$VERSION/$VERSION.dev$TODAY+$TORCH_VERSION$CUDA_VERSION/" pyg_lib/__init__.py
+        shell: bash
+
+      - name: Build wheel
+        run: |
+          bash ./.github/workflows/utils/build_linux.sh ${{ matrix.cuda-version }} ${{ matrix.python-version }} ${{ matrix.torch-version }}
+
+      - name: Upload wheel (final)
+        if: ${{ inputs.release-type == 'final' }}
+        run: |
+          aws s3 sync dist s3://data.pyg.org/whl/torch-${{ matrix.torch-version }}+${{ matrix.cuda-version }} --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
+
+      - name: Upload wheel (nightly)
+        if: ${{ inputs.release-type == 'nightly' }}
+        run: |
+          aws s3 sync dist s3://data.pyg.org/whl/nightly/torch-${{ matrix.torch-version }}+${{ matrix.cuda-version }} --grants read=uri=http://acs.amazonaws.com/groups/global/AllUsers
