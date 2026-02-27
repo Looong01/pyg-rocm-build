@@ -6,7 +6,7 @@
   AT_ASSERTM(x.device().is_cuda(), #x " must be CUDA tensor")
 #define CHECK_INPUT(x) AT_ASSERTM(x, "Input mismatch")
 
-#if defined(USE_ROCM) && __AMDGCN_WAVEFRONT_SIZE == 64
+#ifdef USE_ROCM
 __device__ __inline__ at::Half
 __shfl_sync(const unsigned long long mask, const at::Half var, const int srcLane) {
   return __shfl_sync(mask, var.operator __half(), srcLane);
