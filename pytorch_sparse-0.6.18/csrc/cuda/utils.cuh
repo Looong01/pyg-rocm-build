@@ -2,44 +2,57 @@
 
 #include "../extensions.h"
 
-#define CHECK_CUDA(x) \
+#define CHECK_CUDA(x)                                                          \
   AT_ASSERTM(x.device().is_cuda(), #x " must be CUDA tensor")
 #define CHECK_INPUT(x) AT_ASSERTM(x, "Input mismatch")
 
+// On ROCm, __shfl_*_sync requires a 64-bit mask; on CUDA it's 32-bit.
 #ifdef USE_ROCM
-__device__ __inline__ at::Half
-__shfl_sync(const unsigned long long mask, const at::Half var, const int srcLane) {
-  return __shfl_sync(mask, var.operator __half(), srcLane);
+  using warp_mask_t = unsigned long long;
+#else
+  using warp_mask_t = unsigned int;
+#endif
+
+__device__ __inline__ at::Half __shfl_up_sync(const warp_mask_t mask,
+                                              const at::Half var,
+                                              const unsigned int delta) {
+  return __shfl_up_sync(mask, var.operator __half(), delta);
 }
 
-__device__ __inline__ at::Half __shfl_down_sync(const unsigned long long mask,
+__device__ __inline__ at::Half __shfl_down_sync(const warp_mask_t mask,
                                                 const at::Half var,
                                                 const unsigned int delta) {
   return __shfl_down_sync(mask, var.operator __half(), delta);
 }
-#else
-__device__ __inline__ at::Half
-__shfl_sync(const unsigned long long mask, const at::Half var, const int srcLane)
-{
-  return __shfl_sync(mask, var.operator __half(), srcLane);
+
+__device__ __inline__ at::Half __shfl_sync(const warp_mask_t mask,
+                                           const at::Half var,
+                                           const int delta) {
+  return __shfl_sync(mask, var.operator __half(), delta);
 }
 
-__device__ __inline__ at::Half __shfl_down_sync(const unsigned long long mask,
-                                                const at::Half var,
-                                                const unsigned int delta)
-{
-  return __shfl_down_sync(mask, var.operator __half(), delta);
+__device__ __inline__ at::Half __shfl_up(const at::Half var,
+                                         const unsigned int delta) {
+  return __shfl_up(var.operator __half(), delta);
 }
-#endif
+
+__device__ __inline__ at::Half __shfl_down(const at::Half var,
+                                           const unsigned int delta) {
+  return __shfl_down(var.operator __half(), delta);
+}
+
+__device__ __inline__ at::Half
+__shfl(const at::Half var, const int delta) {
+  return __shfl(var.operator __half(), delta);
+}
 
 #ifdef USE_ROCM
-__device__ __inline__ at::Half __ldg(const at::Half *ptr)
-{
-  return __ldg(reinterpret_cast<const __half *>(ptr));
+__device__ __inline__ at::Half __ldg(const at::Half* ptr) {
+  return __ldg(reinterpret_cast<const __half*>(ptr));
 }
-#define SHFL_UP_SYNC(mask, var, delta) __shfl_up_sync(mask, var, delta)
-#define SHFL_DOWN_SYNC(mask, var, delta) __shfl_down_sync(mask, var, delta)
-#define SHFL_SYNC(mask, var, delta) __shfl_sync(mask, var, delta)
+#define SHFL_UP_SYNC(mask, var, delta) __shfl_up(var, delta)
+#define SHFL_DOWN_SYNC(mask, var, delta) __shfl_down(var, delta)
+#define SHFL_SYNC(mask, var, delta) __shfl(var, delta)
 #else
 #define SHFL_UP_SYNC __shfl_up_sync
 #define SHFL_DOWN_SYNC __shfl_down_sync
