@@ -25,10 +25,10 @@
 # Build environment
 ```
 Ubuntu 22.04 LTS
-PyTorch 2.9 for Python 3.10~3.14
-ROCm 7.1.1
+PyTorch 2.11 for Python 3.10~3.14
+ROCm 7.2.2
 GNU-13
-Clang-20
+Clang-22
 ```
   
 # Current version
