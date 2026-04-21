@@ -1,7 +1,7 @@
 #!/bin/bash
 
-package_name="torch-2.10.0-rocm-7.1"
-version_tag="post2"
+package_name="torch-2.11.0-rocm-7.2"
+version_tag="post4"
 
 
 current_path=$(pwd)
@@ -55,45 +55,91 @@ done
 # 等待所有剩余任务完成
 wait
 
-# 后续文件处理（保持不变）
-if [ -d ${current_path}/dist ]; then
-  rm -rf ${current_path}/dist
-fi
-mkdir ${current_path}/dist
+# 添加pyg-lib-rocm的编译（放在wait之后）
+# ================================
+# 编译pyg-lib-rocm
+for version in "${versions[@]}"; do
+    (
+        cd "${current_path}/pyg-lib-rocm" || exit 1
+        "${conda_path}/${version}/bin/python" setup.py bdist_wheel
+    ) &&
+    wait
+done
 
+# 等待所有剩余任务完成
+wait
+
+# ================================
+# 后续文件处理
+# ================================
+
+# 清理并创建目标目录
+if [ -d ${current_path}/dist ]; then
+    rm -rf ${current_path}/dist
+fi
+mkdir -p ${current_path}/dist
+
+# 移动编译好的 wheel 文件到目标目录
 for version in "${versions[@]}"; do
     mkdir -p ${current_path}/dist/${package_name}-${version}-linux_x86_64
     py_version="${version#py}"
-    for module in "pytorch_cluster" "pytorch_scatter" "pytorch_sparse" "pytorch_spline_conv"; do
-        mv "${current_path}/${module}/dist/"*-cp${py_version}-cp${py_version}-linux_x86_64.whl "${current_path}/dist/${package_name}-${version}-linux_x86_64/"
+    for module in "pytorch_cluster" "pytorch_scatter" "pytorch_sparse" "pytorch_spline_conv" "pyg-lib-rocm"; do
+        wheel_pattern="${current_path}/${module}/dist/"*-cp${py_version}-cp${py_version}-linux_x86_64.whl
+        if ls ${wheel_pattern} 1>/dev/null 2>&1; then
+            mv ${wheel_pattern} ${current_path}/dist/${package_name}-${version}-linux_x86_64/
+            echo "Moved ${module} wheel for ${version}"
+        else
+            echo "Warning: No wheel found for ${module} ${version}"
+        fi
     done
 done
 
-for module in "pytorch_cluster" "pytorch_scatter" "pytorch_sparse" "pytorch_spline_conv"; do
+# 清理构建目录
+for module in "pytorch_cluster" "pytorch_scatter" "pytorch_sparse" "pytorch_spline_conv" "pyg-lib-rocm"; do
     rm -rf "${current_path}/${module}/dist"
     rm -rf "${current_path}/${module}/build"
 done
 
+# 下载 torch_geometric
 wget "https://files.pythonhosted.org/packages/1e/d3/4dffd7300500465e0b4a2ae917dcb2ce771de0b9a772670365799a27c024/torch_geometric-2.7.0-py3-none-any.whl" -O "${current_path}/dist/torch_geometric-2.7.0-py3-none-any.whl"
 
+# 创建包含所有依赖的 zip 文件
 for version in "${versions[@]}"; do
     cp ${current_path}/dist/torch_geometric-2.7.0-py3-none-any.whl ${current_path}/dist/${package_name}-${version}-linux_x86_64/
     zip -j ${current_path}/dist/${package_name}-${version}-linux_x86_64.zip ${current_path}/dist/${package_name}-${version}-linux_x86_64/*.whl
+    # 从 dist 目录中移除 torch_geometric，不包含在最终上传的包中
+    rm ${current_path}/dist/${package_name}-${version}-linux_x86_64/torch_geometric-*.whl
 done
 
 rm ${current_path}/dist/torch_geometric-2.7.0-py3-none-any.whl
 
-# 复制所有编译好的包，除了torch_geometric，到./upload/
+# 准备 upload 目录
+if [ -d ${current_path}/upload ]; then
+    rm -rf ${current_path}/upload/*.whl
+else
+    mkdir -p ${current_path}/upload
+fi
+
+# 复制所有编译好的包到./upload/
 for version in "${versions[@]}"; do
     cp ${current_path}/dist/${package_name}-${version}-linux_x86_64/*.whl ${current_path}/upload/
 done
 
-rm -rf ${current_path}/upload/torch_geometric-2.7.0-py3-none-any.whl
-
 cd ${current_path}/upload
 
+# ================================
+# 修复并上传 wheel 文件
+# ================================
+
+echo "Fixing torch packages..."
 "${conda_path}/py312/bin/python" fix_whl.py --post "${version_tag}"
 
+# 计算 pyg-lib-rocm 的 version_tag（比其他包减 3）
+pyg_version_tag=$("${conda_path}/py312/bin/python" -c "import re; t='${version_tag}'; m=re.match(r'post(\d+)', t); print(f'post{int(m.group(1))-3}' if m and int(m.group(1))>3 else '')")
+echo "Fixing pyg-lib-rocm packages with tag: ${pyg_version_tag}..."
+"${conda_path}/py312/bin/python" fix_whl_pyglib.py --post "${pyg_version_tag}"
+
+echo "Uploading to PyPI..."
 "${conda_path}/py312/bin/python" -m twine upload -u __token__ -p <Pypi_token> *.whl
 
 cd ${current_path}

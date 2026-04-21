@@ -2,7 +2,7 @@
 1. Upgrade all the PYG libraries to the latest versions.
 2. Remove Python 3.9 support, because PyTorch 2.9 does not support it.
 3. Add Python 3.14 support.
-4. Support ROCm 7.1.1.
+4. Support ROCm 7.2.2.
 5. Add Pypi.org installation channel.
 6. Add pyg-lib-rocm support.
   

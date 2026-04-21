@@ -20,8 +20,8 @@ def normalize_post_tag(post_tag: str) -> str:
     if t.startswith("."):
         t = t[1:]
     t = t.lower()
-    if not re.fullmatch(r"post\d+", t):
-        raise ValueError(f"Invalid post tag: {post_tag!r}. Expected like 'post2'.")
+    # if not re.fullmatch(r"post\d+", t):
+    #     raise ValueError(f"Invalid post tag: {post_tag!r}. Expected like 'post2'.")
     return t
 
 def force_post_version(version: str, post_tag: str) -> str:
@@ -210,7 +210,7 @@ def main():
     print(f"Platform tag: {OLD_PLATFORM} -> {NEW_PLATFORM}")
     print(f"Version tag:  force .{post_tag}\n")
 
-    wheels = sorted(Path(".").glob("*.whl"))
+    wheels = sorted(Path(".").glob("torch_*.whl"))
     if not wheels:
         print("No wheel files found in current directory")
         return

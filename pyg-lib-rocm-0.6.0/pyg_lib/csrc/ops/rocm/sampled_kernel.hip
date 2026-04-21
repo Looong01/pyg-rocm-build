@@ -101,7 +101,7 @@ at::Tensor sampled_op_kernel(const at::Tensor& left,
             to_fn_type.at(fn), left_index.has_value(), right_index.has_value(),
             num_feats, numel);
 
-    C10_HIP_KERNEL_LAUNCH_CHECK();
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
   });
   return out;
 }

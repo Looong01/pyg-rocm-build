@@ -79,7 +79,7 @@ at::Tensor random_walk_kernel(const at::Tensor& rowptr,
         rowptr_data, col_data, seed_data, rand_data, out_data, seed.size(0),
         walk_length);
 
-    C10_HIP_KERNEL_LAUNCH_CHECK();
+    C10_CUDA_KERNEL_LAUNCH_CHECK();
   });
 
   return out.t().contiguous();
