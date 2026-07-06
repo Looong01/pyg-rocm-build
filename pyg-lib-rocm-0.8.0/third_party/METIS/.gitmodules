@@ -1,0 +1,3 @@
+[submodule "GKlib"]
+	path = GKlib
+	url = https://github.com/KarypisLab/GKlib.git

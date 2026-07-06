@@ -1,0 +1,48 @@
+name: Linting
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - master
+    paths:
+      - 'torch_geometric/**'
+      - 'test/**'
+      - 'examples/**'
+      - 'benchmark/**'
+      - 'pyproject.toml'
+      - '.github/actions/setup/action.yml'
+      - '.github/workflows/linting.yml'
+  pull_request:
+    paths:
+      - 'torch_geometric/**'
+      - 'test/**'
+      - 'examples/**'
+      - 'benchmark/**'
+      - 'pyproject.toml'
+      - '.github/actions/setup/action.yml'
+      - '.github/workflows/linting.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ startsWith(github.ref, 'refs/pull/') || github.run_number }}  # yamllint disable-line
+  # Only cancel intermediate builds if on a PR:
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+
+  mypy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup packages
+        uses: ./.github/actions/setup
+
+      - name: Install main package
+        run: |
+          uv pip install -e ".[full,test]" mypy types-requests
+
+      - name: Check type hints
+        run: |
+          mypy -v --cache-dir=/dev/null

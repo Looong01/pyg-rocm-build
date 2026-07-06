@@ -1,0 +1,42 @@
+name: "CCCL Docs Build/Upload"
+description: "Builds the docs and uploads them as workflow artifacts."
+
+inputs:
+  upload_workflow_artifact:
+    description: "Uploads the built docs as a workflow artifact (actions/upload-artifact)."
+    required: false
+    default: "true"
+
+
+runs:
+  using: "composite"
+  steps:
+    # Install required dependencies
+    - name: Install docs build dependencies
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build python3-venv git flex bison
+
+    # Build all docs
+    - name: Build all docs
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: ./docs/gen_docs.bash
+
+    # Copy all docs to the right folder
+    - name: Move docs to right folder
+      shell: bash --noprofile --norc -euo pipefail {0}
+      run: |
+        mkdir -p _site
+        cp -rf ./docs/_build/html/* _site/
+        touch _site/.nojekyll
+        ./docs/scrape_docs.bash ./_site
+
+    # Update docs as workflow artifact:
+    - name: Upload artifact
+      if: ${{ inputs.upload_workflow_artifact == 'true' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: docs
+        path: _site/
+        compression-level: 0

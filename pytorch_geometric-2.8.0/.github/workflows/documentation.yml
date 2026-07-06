@@ -1,0 +1,47 @@
+name: Documentation
+
+on:  # yamllint disable-line rule:truthy
+  push:
+    branches:
+      - master
+    paths:
+      - 'torch_geometric/**'
+      - 'docs/**'
+      - 'pyproject.toml'
+      - '.github/actions/setup/action.yml'
+      - '.github/workflows/documentation.yml'
+  pull_request:
+    paths:
+      - 'torch_geometric/**'
+      - 'docs/**'
+      - 'pyproject.toml'
+      - '.github/actions/setup/action.yml'
+      - '.github/workflows/documentation.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ startsWith(github.ref, 'refs/pull/') || github.run_number }}  # yamllint disable-line
+  # Only cancel intermediate builds if on a PR:
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+
+jobs:
+
+  make_html:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup packages
+        uses: ./.github/actions/setup
+        with:
+          full_install: false
+
+      - name: Install main package
+        run: |
+          uv pip install -e . nbsphinx git+https://github.com/pyg-team/pyg_sphinx_theme.git
+
+      - name: Build documentation
+        working-directory: ./docs
+        run: |
+          sphinx-build -M html "source" "build" -W  # Fail on warning.

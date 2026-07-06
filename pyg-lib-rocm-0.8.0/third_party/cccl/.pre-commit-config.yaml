@@ -1,0 +1,87 @@
+# Copyright (c) 2024, NVIDIA CORPORATION.
+ci:
+    autofix_commit_msg: |
+      [pre-commit.ci] auto code formatting
+    autofix_prs: false
+    autoupdate_branch: ''
+    autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+    autoupdate_schedule: quarterly
+    skip: []
+    submodules: false
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v20.1.7
+    hooks:
+      - id: clang-format
+        types_or: [file]
+        files: |
+          (?x)^(
+            ^.*\.c$|
+            ^.*\.cpp$|
+            ^.*\.cu$|
+            ^.*\.cuh$|
+            ^.*\.cxx$|
+            ^.*\.h$|
+            ^.*\.hpp$|
+            ^.*\.inl$|
+            ^.*\.mm$|
+            ^libcudacxx/include/.*/[^.]*$
+          )
+        args: ["-fallback-style=none", "-style=file", "-i"]
+
+  # TODO/REMINDER: add the Ruff vscode extension to the devcontainers
+  # Ruff, the Python auto-correcting linter/formatter written in Rust
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.12.2
+    hooks:
+    - id: ruff  # linter
+    - id: ruff-format  # formatter
+
+  # TOML lint & format
+  - repo: https://github.com/ComPWA/taplo-pre-commit
+    rev: v0.9.3
+    hooks:
+      # See https://github.com/NVIDIA/cccl/issues/3426
+      # - id: taplo-lint
+      #   exclude: "^docs/"
+      - id: taplo-format
+        exclude: "^docs/"
+
+  # CMake formatting
+  - repo: https://github.com/BlankSpruce/gersemi
+    rev: 0.23.1
+    hooks:
+    - id: gersemi
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.1
+    hooks:
+      - id: codespell
+        additional_dependencies: [tomli]
+        args: ["--toml", "pyproject.toml", "-I", ".codespell-ignore.txt"]
+        exclude: |
+          (?x)^(
+            build|
+            CITATION.md
+          )
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: 'v1.16.1'
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-cachetools, numpy]
+        args: ["--config-file=python/cuda_cccl/pyproject.toml",
+               "python/cuda_cccl/cuda/compute/"]
+        pass_filenames: false
+
+
+default_language_version:
+  python: python3

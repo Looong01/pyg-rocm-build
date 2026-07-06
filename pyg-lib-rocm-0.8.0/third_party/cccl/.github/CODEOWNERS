@@ -1,0 +1,33 @@
+# Libraries
+thrust/ @nvidia/cccl-thrust-codeowners
+cub/ @nvidia/cccl-cub-codeowners
+libcudacxx/ @nvidia/cccl-libcudacxx-codeowners
+cudax/ @nvidia/cccl-cudax-codeowners
+c/ @nvidia/cccl-c-codeowners
+python/ @nvidia/cccl-python-codeowners
+
+# Infrastructure
+.github/ @nvidia/cccl-infra-codeowners
+ci/ @nvidia/cccl-infra-codeowners
+.devcontainer/ @nvidia/cccl-infra-codeowners
+.pre-commit-config.yaml @nvidia/cccl-infra-codeowners
+.clang-format @nvidia/cccl-infra-codeowners
+.clangd @nvidia/cccl-infra-codeowners
+c2h/ @nvidia/cccl-infra-codeowners
+nvbench_helper/ @nvidia/cccl-infra-codeowners
+.vscode @nvidia/cccl-infra-codeowners
+
+# cmake
+**/CMakeLists.txt @nvidia/cccl-cmake-codeowners
+**/cmake/ @nvidia/cccl-cmake-codeowners
+# make an exception for the cudax test cmake file
+cudax/test/CMakeLists.txt @nvidia/cccl-cudax-codeowners
+
+# benchmarks
+benchmarks/ @nvidia/cccl-benchmark-codeowners
+**/benchmarks @nvidia/cccl-benchmark-codeowners
+
+# docs
+README.md @nvidia/cccl-codeowners
+docs/ @nvidia/cccl-codeowners
+examples/ @nvidia/cccl-codeowners

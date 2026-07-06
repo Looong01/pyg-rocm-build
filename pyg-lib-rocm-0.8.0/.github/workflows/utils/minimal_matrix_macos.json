@@ -1,0 +1,12 @@
+[
+  {
+    "torch-version": "2.12.0",
+    "python-version": ["3.10", "3.14"],
+    "cuda-version": ["cpu"]
+  },
+  {
+    "torch-version": "2.10.0",
+    "python-version": ["3.10", "3.14"],
+    "cuda-version": ["cpu"]
+  }
+]

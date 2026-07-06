@@ -1,7 +1,7 @@
 #!/bin/bash
 
-package_name="torch-2.11.0-rocm-7.2"
-version_tag="post4"
+package_name="torch-2.12.1-rocm-7.2"
+version_tag="post5"
 
 
 current_path=$(pwd)
@@ -101,7 +101,7 @@ for module in "pytorch_cluster" "pytorch_scatter" "pytorch_sparse" "pytorch_spli
 done
 
 # 下载 torch_geometric
-wget "https://files.pythonhosted.org/packages/1e/d3/4dffd7300500465e0b4a2ae917dcb2ce771de0b9a772670365799a27c024/torch_geometric-2.7.0-py3-none-any.whl" -O "${current_path}/dist/torch_geometric-2.7.0-py3-none-any.whl"
+wget "https://files.pythonhosted.org/packages/ab/68/71b142d713c5449b4b3446233d85dc711f63c42d7768b28c690ff55bc181/torch_geometric-2.8.0-py3-none-any.whl"
 
 # 创建包含所有依赖的 zip 文件
 for version in "${versions[@]}"; do
@@ -139,7 +139,7 @@ pyg_version_tag=$("${conda_path}/py312/bin/python" -c "import re; t='${version_t
 echo "Fixing pyg-lib-rocm packages with tag: ${pyg_version_tag}..."
 "${conda_path}/py312/bin/python" fix_whl_pyglib.py --post "${pyg_version_tag}"
 
-echo "Uploading to PyPI..."
-"${conda_path}/py312/bin/python" -m twine upload -u __token__ -p <Pypi_token> *.whl
+# echo "Uploading to PyPI..."
+"${conda_path}/py312/bin/python" -m twine upload -u __token__ -p pypi-AgEIcHlwaS5vcmcCJDM3ZmVhMmU1LTU1ZmQtNDk5Zi05YjY4LTQ0MGFiNjg1ZjQ3YgACKlszLCJmMTBmZjQxMS04NjU5LTRmNTMtYTE0Yy1mNTZiMzVjZmE0MzgiXQAABiCfdvz-vODPUMP2PayBYa9zkBhN3NdBjahjGgn6oohU5g *.whl
 
 cd ${current_path}
