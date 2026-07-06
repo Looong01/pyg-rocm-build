@@ -1,0 +1,137 @@
+﻿#=============================================================================
+# Copyright (c) 2018-2024, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#=============================================================================
+
+# Modifications Copyright (c) 2024-2025 Advanced Micro Devices, Inc.
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+
+cmake_minimum_required(VERSION 3.23.1 FATAL_ERROR)
+
+include(${rapids-cmake-dir}/cpm/nvbench.cmake)
+rapids_cpm_nvbench()
+
+###################################################################################################
+### compiler function #############################################################################
+###################################################################################################
+
+###################################################################################################
+function(ConfigureBench BENCH_NAME)
+    add_executable(${BENCH_NAME} ${ARGN})
+    set_target_properties(${BENCH_NAME} PROPERTIES
+                                        POSITION_INDEPENDENT_CODE ON
+                                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/benchmarks")
+    target_include_directories(${BENCH_NAME} PRIVATE
+                                             "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_compile_options(${BENCH_NAME} PRIVATE -lineinfo) # TODO(HIP/AMD): --expt-extended-lambda
+    target_link_libraries(${BENCH_NAME} PRIVATE
+                                        nvbench::main
+                                        pthread
+                                        cuco)
+endfunction(ConfigureBench)
+
+file(GLOB CU_SOURCES
+  hash_bench.cu
+  ./*/*/*.cu)
+
+set_source_files_properties(${CU_SOURCES} 
+	                   PROPERTIES LANGUAGE HIP)
+
+###################################################################################################
+### benchmark sources #############################################################################
+###################################################################################################
+
+###################################################################################################
+# - static_set benchmarks -------------------------------------------------------------------------
+ConfigureBench(STATIC_SET_BENCH
+  static_set/contains_bench.cu
+  static_set/find_bench.cu
+  static_set/insert_bench.cu
+  static_set/retrieve_bench.cu
+  static_set/retrieve_all_bench.cu
+  static_set/size_bench.cu
+  static_set/rehash_bench.cu)
+
+###################################################################################################
+# - static_map benchmarks -------------------------------------------------------------------------
+ConfigureBench(STATIC_MAP_BENCH
+  static_map/insert_bench.cu
+  static_map/find_bench.cu
+  static_map/contains_bench.cu
+  static_map/erase_bench.cu
+  static_map/insert_or_apply_bench.cu)
+
+###################################################################################################
+# - static_multiset benchmarks --------------------------------------------------------------------
+ConfigureBench(STATIC_MULTISET_BENCH
+  static_multiset/contains_bench.cu
+  static_multiset/retrieve_bench.cu
+  static_multiset/count_bench.cu
+  static_multiset/find_bench.cu
+  static_multiset/insert_bench.cu)
+
+###################################################################################################
+# - static_multimap benchmarks --------------------------------------------------------------------
+ConfigureBench(STATIC_MULTIMAP_BENCH
+  static_multimap/insert_bench.cu
+  static_multimap/retrieve_bench.cu
+  static_multimap/query_bench.cu
+  static_multimap/count_bench.cu)
+
+###################################################################################################
+# - dynamic_map benchmarks ------------------------------------------------------------------------
+# ConfigureBench(DYNAMIC_MAP_BENCH
+#  hash_table/dynamic_map/insert_bench.cu
+#  hash_table/dynamic_map/find_bench.cu
+#  hash_table/dynamic_map/contains_bench.cu
+#  hash_table/dynamic_map/erase_bench.cu)
+
+###################################################################################################
+# - dynamic_map benchmarks ------------------------------------------------------------------------
+# ConfigureBench(DYNAMIC_MAP_BENCH
+#  dynamic_map/insert_bench.cu
+#  dynamic_map/find_bench.cu
+#  dynamic_map/contains_bench.cu
+#  dynamic_map/erase_bench.cu)
+
+# ###################################################################################################
+# - hash function benchmarks ----------------------------------------------------------------------
+ConfigureBench(HASH_FUNCTION_BENCH
+  hash_function/hash_function_bench.cu)
+
+###################################################################################################
+# - hyperloglog benchmarks -----------------------------------------------------------
+# Note(HIP/AMD): hyperloglog is currently not supported due to missing reduce api in cooperative_groups
+# ConfigureBench(HYPERLOGLOG_BENCH
+#   hyperloglog/hyperloglog_bench.cu)
+
+###################################################################################################
+# - bloom_filter benchmarks -----------------------------------------------------------------------
+ConfigureBench(BLOOM_FILTER_BENCH
+  bloom_filter/add_bench.cu
+  bloom_filter/contains_bench.cu)
