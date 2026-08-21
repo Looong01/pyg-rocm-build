@@ -3,18 +3,49 @@
 # - USE_MKL_BLAS=1:
 #   Enables use of MKL BLAS (requires PyTorch to be built with MKL support)
 
-import importlib
+import importlib.util
 import multiprocessing
 import os
 import os.path as osp
 import re
 import subprocess
+import sys
 import warnings
+
+os.environ.setdefault('MAX_JOBS', str(multiprocessing.cpu_count()))
 
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-__version__ = '0.8.0'
+from wheel.bdist_wheel import bdist_wheel
+
+DEFAULT_PLATFORM = 'manylinux_2_32_x86_64'
+
+
+def _post_tag():
+    # build.sh 已将普通库的 version_tag 减5后通过此变量传入。
+    tag = os.getenv('PYG_LIB_VERSION_TAG', '').strip().lstrip('.')
+    if tag and not re.fullmatch(r'post\d+', tag, re.IGNORECASE):
+        raise ValueError('PYG_LIB_VERSION_TAG must look like postN')
+    return tag.lower()
+
+
+def pyg_lib_version(base_version):
+    tag = _post_tag()
+    base_version = re.sub(r'\.post\d+$', '', base_version, flags=re.IGNORECASE)
+    if not tag:
+        return base_version
+    return f'{base_version}.{tag.lower()}'
+
+
+class ROCmBdistWheel(bdist_wheel):
+    def finalize_options(self):
+        self.plat_name = os.getenv('WHEEL_PLAT_NAME', DEFAULT_PLATFORM)
+        super().finalize_options()
+        self.plat_name = os.getenv('WHEEL_PLAT_NAME', DEFAULT_PLATFORM)
+
+
+__version__ = pyg_lib_version('0.8.0')
 URL = 'https://github.com/pyg-team/pyg-lib'
 
 
@@ -40,7 +71,7 @@ class CMakeBuild(build_ext):
     def build_extension(self, ext):
         import sysconfig
 
-        import torch
+        import torch  # type: ignore[import-not-found]
 
         extdir = osp.abspath(osp.dirname(self.get_ext_fullpath(ext.name)))
         self.build_type = 'DEBUG' if self.debug else 'RELEASE'
@@ -66,6 +97,10 @@ class CMakeBuild(build_ext):
         cmake_args = [
             '-DBUILD_TEST=OFF',
             '-DBUILD_BENCHMARK=OFF',
+            # CMake's execute_process() can misinterpret Python's ``True`` /
+            # ``False`` output as a variable name. Pass the ABI setting as an
+            # integer so libpyg uses the same C++ ABI as the installed Torch.
+            f'-DUSE_CXX11_ABI={int(torch.compiled_with_cxx11_abi())}',
             f'-DWITH_CUDA={"ON" if WITH_CUDA else "OFF"}',
             # Disable cmake's default CUDA architectures; torch's cmake
             # handles gencode flags via TORCH_CUDA_ARCH_LIST instead.
@@ -157,7 +192,7 @@ def mkl_dependencies():
     if not CMakeBuild.check_env_flag('USE_MKL_BLAS'):
         return []
 
-    import torch
+    import torch  # type: ignore[import-not-found]
 
     dependencies = []
     torch_config = torch.__config__.show()
@@ -178,7 +213,7 @@ install_requires = [] + mkl_dependencies()
 
 if not bool(os.getenv('BUILD_DOCS', 0)):
     ext_modules = [CMakeExtension('pyg_lib.libpyg')]
-    cmdclass = {'build_ext': CMakeBuild}
+    cmdclass = {'build_ext': CMakeBuild, 'bdist_wheel': ROCmBdistWheel}
 else:
     ext_modules = None
     cmdclass = {}

@@ -2,7 +2,7 @@
 1. Upgrade all the PYG libraries to the latest versions.
 2. Remove Python 3.9 support, because PyTorch 2.9 does not support it.
 3. Add Python 3.14 support.
-4. Support ROCm 7.2.*.
+4. Support ROCm 7.14.*.
 5. Add Pypi.org installation channel.
 6. Add pyg-lib-rocm support.
   
@@ -24,11 +24,11 @@
   
 # Build environment
 ```
-Ubuntu 22.04 LTS
+Ubuntu 24.04 LTS
 PyTorch 2.12 for Python 3.10~3.14
-ROCm 7.2.2
-GNU-13
-Clang-22
+ROCm 7.14.0
+GNU-14
+Clang-23
 ```
   
 # Current version

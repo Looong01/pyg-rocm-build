@@ -13,7 +13,8 @@ radius_kernel(const scalar_t *__restrict__ x, const scalar_t *__restrict__ y,
               const int64_t *__restrict__ ptr_y, int64_t *__restrict__ row,
               int64_t *__restrict__ col, const scalar_t r, const int64_t n,
               const int64_t m, const int64_t dim, const int64_t num_examples,
-              const int64_t max_num_neighbors) {
+              const int64_t max_num_neighbors,
+              const bool ignore_same_index) {
 
   const int64_t n_y = blockIdx.x * blockDim.x + threadIdx.x;
   if (n_y >= m)
@@ -29,7 +30,7 @@ radius_kernel(const scalar_t *__restrict__ x, const scalar_t *__restrict__ y,
               (x[n_x * dim + d] - y[n_y * dim + d]);
     }
 
-    if (dist < r) {
+    if (dist < r && !(ignore_same_index && n_y == n_x)) {
       row[n_y * max_num_neighbors + count] = n_y;
       col[n_y * max_num_neighbors + count] = n_x;
       count++;
@@ -43,7 +44,8 @@ radius_kernel(const scalar_t *__restrict__ x, const scalar_t *__restrict__ y,
 torch::Tensor radius_cuda(const torch::Tensor x, const torch::Tensor y,
                           torch::optional<torch::Tensor> ptr_x,
                           torch::optional<torch::Tensor> ptr_y, const double r,
-                          const int64_t max_num_neighbors) {
+                          const int64_t max_num_neighbors,
+                          const bool ignore_same_index) {
   CHECK_CUDA(x);
   CHECK_CONTIGUOUS(x);
   CHECK_INPUT(x.dim() == 2);
@@ -52,7 +54,7 @@ torch::Tensor radius_cuda(const torch::Tensor x, const torch::Tensor y,
   CHECK_INPUT(y.dim() == 2);
   CHECK_INPUT(x.size(1) == y.size(1));
 
-  cudaSetDevice(x.get_device());
+  c10::cuda::MaybeSetDevice(x.get_device());
 
   if (ptr_x.has_value()) {
     CHECK_CUDA(ptr_x.value());
@@ -70,8 +72,6 @@ torch::Tensor radius_cuda(const torch::Tensor x, const torch::Tensor y,
 
   CHECK_INPUT(ptr_x.value().numel() == ptr_y.value().numel());
 
-  cudaSetDevice(x.get_device());
-
   auto row =
       torch::full(y.size(0) * max_num_neighbors, -1, ptr_y.value().options());
   auto col =
@@ -81,13 +81,15 @@ torch::Tensor radius_cuda(const torch::Tensor x, const torch::Tensor y,
 
   auto stream = at::cuda::getCurrentCUDAStream();
   auto scalar_type = x.scalar_type();
-  AT_DISPATCH_FLOATING_TYPES_AND(at::ScalarType::Half, scalar_type, "_", [&] {
-    radius_kernel<scalar_t><<<BLOCKS, THREADS, 0, stream>>>(
-        x.data_ptr<scalar_t>(), y.data_ptr<scalar_t>(),
-        ptr_x.value().data_ptr<int64_t>(), ptr_y.value().data_ptr<int64_t>(),
-        row.data_ptr<int64_t>(), col.data_ptr<int64_t>(), r * r, x.size(0),
-        y.size(0), x.size(1), ptr_x.value().numel() - 1, max_num_neighbors);
-  });
+  AT_DISPATCH_FLOATING_TYPES_AND2(
+      at::ScalarType::Half, at::ScalarType::BFloat16, scalar_type, "_", [&] {
+        radius_kernel<scalar_t><<<BLOCKS, THREADS, 0, stream>>>(
+            x.data_ptr<scalar_t>(), y.data_ptr<scalar_t>(),
+            ptr_x.value().data_ptr<int64_t>(),
+            ptr_y.value().data_ptr<int64_t>(), row.data_ptr<int64_t>(),
+            col.data_ptr<int64_t>(), r * r, x.size(0), y.size(0), x.size(1),
+            ptr_x.value().numel() - 1, max_num_neighbors, ignore_same_index);
+      });
 
   auto mask = row != -1;
   return torch::stack({row.masked_select(mask), col.masked_select(mask)}, 0);

@@ -54,7 +54,7 @@ if(NOT WIN32 AND NOT DEFINED USE_CXX11_ABI)
     set(USE_CXX11_ABI 0)
   endif()
   message(STATUS "Using USE_CXX11_ABI set by PyTorch to ${USE_CXX11_ABI}")
-else()
+elseif(NOT DEFINED USE_CXX11_ABI)
   set(USE_CXX11_ABI 0)
 endif()
 
